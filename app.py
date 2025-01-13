@@ -68,6 +68,13 @@ st.markdown(
             color: #007BFF;
             text-align: center;
         }
+        /* Style the subtitle */
+        .subtitle {
+            text-align: center;
+            font-size: 1.3em;
+            color: #555555;
+            margin-bottom: 20px;
+        }
         /* Style the text input box */
         textarea {
             font-size: 1.2em;
@@ -98,9 +105,9 @@ st.markdown(
         .warning-note {
             background-color: #fff4e5;
             padding: 15px;
+            text-align: center;
             border: 1px solid #ffd699;
             border-radius: 5px;
-            text-align: center;
             font-size: 1.1em;
             color: #8a6d3b;
             margin: 20px 0;
@@ -168,7 +175,7 @@ if st.session_state.history:
     labels = [h["Label"] for h in st.session_state.history]
     fig = px.pie(
         names=labels,
-        title="Proportion of Spam vs Non-Spam Predictions",
+        title="Classification Results: Spam vs Non-Spam",
         color_discrete_sequence=px.colors.qualitative.Pastel,
         hole=0.3,
     )

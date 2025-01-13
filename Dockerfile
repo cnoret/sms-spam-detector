@@ -24,6 +24,7 @@ WORKDIR $HOME/app
 RUN curl -fsSL https://get.deta.dev/cli.sh | sh
 RUN pip install --no-cache-dir \
     numpy \
+    plotly \
     tensorflow \
     streamlit
 
