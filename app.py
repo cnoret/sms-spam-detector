@@ -42,7 +42,7 @@ st.write("Enter an SMS message below to classify it as Spam or Non-Spam.")
 
 # Text input
 default_sms = "Congratulations! You've won a $1,000 Walmart gift card. Go to http://bit.ly/123456 to claim now."
-sms_input = st.text_area("Enter SMS text:", value=default_sms, height=100)
+user_input = st.text_area("Enter SMS text:", value=default_sms, height=100)
 
 if st.button("Predict"):
     if user_input.strip():
