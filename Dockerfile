@@ -6,8 +6,8 @@ RUN apt-get update && apt-get install -y \
     nano \
     unzip \
     curl \
- && apt-get clean \
- && rm -rf /var/lib/apt/lists/*
+    && apt-get clean \
+    && rm -rf /var/lib/apt/lists/*
 
 # Create a non-root user
 RUN useradd -m -u 1000 user
@@ -16,7 +16,7 @@ USER user
 # Set environment variables
 ENV HOME=/home/user \
     PATH=/home/user/.local/bin:$PATH \
-    PORT=7860  # Default port if not set by the environment
+    PORT=7860
 
 WORKDIR $HOME/app
 
