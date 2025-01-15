@@ -94,12 +94,6 @@ You can try the application live:
 - Enhance visualizations with detailed analytics.
 - Allow users to choose between multiple pre-trained models within the application.
 
-## Acknowledgements
-
-- Streamlit for building an interactive UI.
-- TensorFlow and Keras for the deep learning model.
-- Docker for containerizing the application.
-- Hugging Face Spaces for hosting the Docker deployment.
 
 ## Author
 
