@@ -25,7 +25,6 @@ You can try the application live:
 
 - Python 3.8 or later
 - pip
-- A GPU-enabled machine (optional but recommended for TensorFlow)
 
 ### Steps
 
