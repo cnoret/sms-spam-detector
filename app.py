@@ -1,6 +1,7 @@
-""" Streamlit app to detect spam SMS messages using a pre-trained TensorFlow model. """
+"""Streamlit app to detect spam SMS messages using a pre-trained TensorFlow model."""
 
 import os
+import json
 import random
 import numpy as np
 import pandas as pd
@@ -21,18 +22,24 @@ def load_model():
     return tf.keras.models.load_model("./models/model_wordembed.keras")
 
 
+# Load the tokenizer
 @st.cache_resource
 def load_tokenizer():
     """Load the pre-trained tokenizer."""
-    tokenizer = Tokenizer(num_words=5000, oov_token="<OOV>")
+    tokenizer = Tokenizer(num_words=1000, oov_token="<OOV>")
     tokenizer.word_index = np.load(
         "./models/tokenizer_word_index.npy", allow_pickle=True
     ).item()
     return tokenizer
 
 
+# Load the model and tokenizer
 model = load_model()
 tokenizer = load_tokenizer()
+
+# Load examples from JSON
+with open("examples.json", "r") as file:
+    examples_list = json.load(file)
 
 
 # Preprocessing function
@@ -130,47 +137,57 @@ st.markdown("---")
 
 # Input section
 if "user_input" not in st.session_state:
-    st.session_state.user_input = (
-        "Congratulations! You've won a $1,000 Walmart gift card. "
-        "Go to http://bit.ly/123456 to claim now."
-    )
+    st.session_state.user_input = random.choice(examples_list)
 
 st.markdown("### 📝 Enter your message :")
-st.text_area("", value=st.session_state.user_input, height=150, key="user_input")
+user_input = st.text_area(
+    "", value=st.session_state.user_input, height=150, key="user_input_area"
+)
+
+col1, col2 = st.columns(2)
+with col1:
+    predict_button = st.button("🔍 Predict")
+with col2:
+    if st.button("🎲 Random Example"):
+        st.session_state.user_input = random.choice(examples_list)
+        st.rerun()
 
 # Prediction history
 if "history" not in st.session_state:
     st.session_state.history = []
 
-# Predict button and results
-if st.button("🔍 Predict"):
-    user_input = st.session_state.user_input
-    if len(user_input.strip()) < 5:
-        st.error("❌ The message is too short to analyze. Please enter a longer SMS.")
-    else:
-        label, confidence = predict_sms(user_input.strip())
-        st.session_state.history.append(
-            {
-                "Message": user_input.strip(),
-                "Label": label,
-                "Confidence": f"{confidence:.2f}%",
-            }
-        )
+if predict_button:
+    with st.spinner("Analyzing message..."):
+        user_input = st.session_state.user_input
+        if len(user_input.strip()) < 5:
+            st.error(
+                "❌ The message is too short to analyze. Please enter a longer SMS."
+            )
+        else:
+            label, confidence = predict_sms(user_input.strip())
+            st.session_state.history.append(
+                {
+                    "Message": user_input.strip(),
+                    "Label": label,
+                    "Confidence": f"{confidence:.2f}%",
+                }
+            )
 
-        # Display prediction
-        emoji = "✅" if label == "Non-Spam" else "🚨"
-        st.success(f"**Predicted Label:** {emoji} {label}")
-        st.info(f"**Confidence:** {confidence:.2f}%")
+            EMOJI = "✅" if label == "Non-Spam" else "🚨"
+            st.success(f"**Predicted Label:** {EMOJI} {label}")
+            st.info(f"**Confidence:** {confidence:.2f}%")
+            st.progress(float(confidence) / 100)
+
         if label == "Spam":
-            st.warning("⚠️ Be careful! This message looks suspicious.")
+            st.warning("⚠️ **Suspicious SMS detected !**")
 
 # Display prediction history
 if st.session_state.history:
     st.markdown("---")
     st.markdown("### 📜 Prediction History")
-    st.table(pd.DataFrame(st.session_state.history))
+    st.data_editor(pd.DataFrame(st.session_state.history), use_container_width=True)
 
-# Proportion of Spam vs Non-Spam predictions
+# Proportion of Spam vs Non-Spam
 if st.session_state.history:
     labels = [h["Label"] for h in st.session_state.history]
     fig = px.pie(
@@ -190,8 +207,10 @@ if st.session_state.history:
     st.plotly_chart(fig)
 
 st.markdown("---")
+
+# Warning note
 st.markdown(
-    "<div class='warning-note'>"
+    "<div style='text-align:center;padding:15px;background-color:#fff4e5;border-radius:8px;'>"
     "This application is powered by a Deep Learning model trained to detect spam messages.<br>"
     "Always exercise <b>caution</b> with unsolicited messages."
     "</div>",
@@ -200,7 +219,7 @@ st.markdown(
 
 # Footer
 st.markdown(
-    "<footer>"
+    "<footer style='text-align:center;'>"
     "Made with ❤️ by "
     "<a href='https://www.linkedin.com/in/christophenoret' target='_blank'>"
     "Christophe NORET"
