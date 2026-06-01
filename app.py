@@ -15,6 +15,12 @@ import tensorflow as tf
 from tensorflow.keras.preprocessing.text import Tokenizer
 from tensorflow.keras.utils import pad_sequences
 
+st.set_page_config(
+    page_title="SMS Spam Detector",
+    page_icon="📲",
+    layout="wide",
+)
+
 
 @st.cache_resource
 def load_model():
@@ -45,22 +51,57 @@ def preprocess_sms(sms_text, maxlen=100):
 def predict_sms(sms_text):
     prediction = model.predict(preprocess_sms(sms_text), verbose=0)[0][0]
     is_spam = prediction > 0.5
-    label = "Spam" if is_spam else "Non-Spam"
-    confidence = float(prediction * 100 if is_spam else (1 - prediction) * 100)
-    return label, confidence
+    result_label = "Spam" if is_spam else "Non-Spam"
+    result_confidence = float(prediction * 100 if is_spam else (1 - prediction) * 100)
+    return result_label, result_confidence
 
 
+# ── Sidebar ───────────────────────────────────────────────────────────────────
+with st.sidebar:
+    st.markdown("#### 📊 Model Performance")
+    st.metric("Test Accuracy", "97%")
+    col_a, col_b = st.columns(2)
+    with col_a:
+        st.metric("Spam F1", "0.89")
+    with col_b:
+        st.metric("Ham F1", "0.98")
+    st.caption("1,115 held-out messages · UCI SMS Spam Collection")
+
+    st.markdown("---")
+
+    st.markdown("#### 🧠 Architecture")
+    st.markdown(
+        """
+        | Layer | Details |
+        | --- | --- |
+        | Embedding | dim 128 · vocab 1K |
+        | Pooling | GlobalAveragePooling1D |
+        | Dense × 2 | 128 → 64 · ReLU |
+        | Output | sigmoid |
+        """
+    )
+    st.caption("153K parameters · 598 KB")
+
+    st.markdown("---")
+
+    st.info(
+        "Trained on ~5,500 messages (UCI dataset, 2010s, English only). "
+        "For educational purposes — not production-ready.",
+        icon="⚠️",
+    )
+
+    st.markdown("---")
+
+    st.markdown(
+        "[![LinkedIn](https://img.shields.io/badge/Christophe_Noret-0A66C2?logo=linkedin&logoColor=white)]"
+        "(https://www.linkedin.com/in/christophenoret/)"
+    )
+
+# ── CSS ───────────────────────────────────────────────────────────────────────
 st.markdown(
     """
     <style>
         footer { visibility: hidden; }
-        .custom-footer {
-            text-align: center;
-            font-size: 1em;
-            color: #555555;
-            margin-top: 40px;
-        }
-        .custom-footer a { color: #007BFF; text-decoration: none; }
     </style>
     """,
     unsafe_allow_html=True,
@@ -161,42 +202,37 @@ with col_result:
 # ── History + Chart ───────────────────────────────────────────────────────────
 if st.session_state.history:
     st.markdown("---")
-    st.markdown("### 📜 Prediction History")
-    st.data_editor(pd.DataFrame(st.session_state.history), width="stretch")
 
-    labels = [h["Label"] for h in st.session_state.history]
-    fig = px.pie(
-        names=labels,
-        title="Classification Results: Spam vs Non-Spam",
-        color_discrete_sequence=px.colors.qualitative.Pastel,
-        hole=0.3,
-    )
-    fig.update_traces(textinfo="percent+label")
-    fig.update_layout(
-        title_font_size=20,
-        title_x=0.25,
-        title_y=0.9,
-        showlegend=True,
-        legend={"orientation": "h", "yanchor": "bottom", "y": -0.2, "xanchor": "center", "x": 0.5},
-    )
-    st.plotly_chart(fig)
+    col_title, col_clear = st.columns([5, 1])
+    with col_title:
+        st.markdown("### 📜 Prediction History")
+    with col_clear:
+        if st.button("🗑️ Clear", use_container_width=True):
+            st.session_state.history = []
+            st.session_state.last_result = None
+            st.rerun()
 
-st.markdown("---")
+    col_table, col_chart = st.columns([3, 2])
 
-# ── Disclaimer ────────────────────────────────────────────────────────────────
-st.markdown(
-    "<div style='text-align:center;padding:15px;background-color:#fff4e5;"
-    "border-radius:8px;color:#8a6d3b;'>"
-    "This application is powered by a Deep Learning model trained to detect spam messages.<br>"
-    "Always exercise <b>caution</b> with unsolicited messages."
-    "</div>",
-    unsafe_allow_html=True,
-)
+    with col_table:
+        st.dataframe(
+            pd.DataFrame(st.session_state.history),
+            use_container_width=True,
+            hide_index=True,
+        )
 
-# ── Footer ────────────────────────────────────────────────────────────────────
-st.markdown(
-    "<div class='custom-footer'>Made with ❤️ by "
-    "<a href='https://www.linkedin.com/in/christophenoret' target='_blank'>"
-    "Christophe NORET</a></div>",
-    unsafe_allow_html=True,
-)
+    with col_chart:
+        labels = [h["Label"] for h in st.session_state.history]
+        fig = px.pie(
+            names=labels,
+            color=labels,
+            color_discrete_map={"Spam": "#dc3545", "Non-Spam": "#28a745"},
+            hole=0.4,
+        )
+        fig.update_traces(textinfo="percent+label")
+        fig.update_layout(
+            margin={"t": 10, "b": 10, "l": 10, "r": 10},
+            showlegend=False,
+            height=250,
+        )
+        st.plotly_chart(fig, use_container_width=True)
