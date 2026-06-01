@@ -86,15 +86,19 @@ with st.sidebar:
 
     st.info(
         "Trained on ~5,500 messages (UCI dataset, 2010s, English only). "
-        "For educational purposes — not production-ready.",
+        "For educational purposes - not production-ready.",
         icon="⚠️",
     )
 
     st.markdown("---")
 
     st.markdown(
-        "[![LinkedIn](https://img.shields.io/badge/Christophe_Noret-0A66C2?logo=linkedin&logoColor=white)]"
-        "(https://www.linkedin.com/in/christophenoret/)"
+        "<div style='text-align:center;'>"
+        "<p style='color:#888;font-size:0.85em;margin-bottom:8px;'>Made by</p>"
+        "<a href='https://www.linkedin.com/in/christophenoret/' target='_blank'>"
+        "<img src='https://img.shields.io/badge/Christophe_Noret-0A66C2?logo=linkedin&logoColor=white'/>"
+        "</a></div>",
+        unsafe_allow_html=True,
     )
 
 # ── CSS ───────────────────────────────────────────────────────────────────────
@@ -102,6 +106,7 @@ st.markdown(
     """
     <style>
         footer { visibility: hidden; }
+        h1 { text-align: center; }
     </style>
     """,
     unsafe_allow_html=True,
@@ -147,7 +152,7 @@ with col_input:
             st.rerun()
 
 with col_result:
-    st.markdown("### 📊 Result")
+    st.markdown("### 🎯 Result")
 
     if predict_button:
         if len(user_input.strip()) < 5:
@@ -203,22 +208,26 @@ with col_result:
 if st.session_state.history:
     st.markdown("---")
 
-    col_title, col_clear = st.columns([5, 1])
-    with col_title:
-        st.markdown("### 📜 Prediction History")
-    with col_clear:
-        if st.button("🗑️ Clear", use_container_width=True):
-            st.session_state.history = []
-            st.session_state.last_result = None
-            st.rerun()
-
     col_table, col_chart = st.columns([3, 2])
 
     with col_table:
+        title_col, clear_col = st.columns([4, 1])
+        with title_col:
+            st.markdown("### 📜 Prediction History")
+        with clear_col:
+            st.markdown("<div style='margin-top:10px'></div>", unsafe_allow_html=True)
+            if st.button("🗑️ Clear", use_container_width=True):
+                st.session_state.history = []
+                st.session_state.last_result = None
+                st.rerun()
         st.dataframe(
             pd.DataFrame(st.session_state.history),
-            use_container_width=True,
             hide_index=True,
+            column_config={
+                "Message": st.column_config.TextColumn("Message", width="large"),
+                "Label": st.column_config.TextColumn("Label", width="small"),
+                "Confidence": st.column_config.TextColumn("Confidence", width="small"),
+            },
         )
 
     with col_chart:
@@ -229,10 +238,17 @@ if st.session_state.history:
             color_discrete_map={"Spam": "#dc3545", "Non-Spam": "#28a745"},
             hole=0.4,
         )
-        fig.update_traces(textinfo="percent+label")
+        fig.update_traces(textinfo="percent", textposition="inside")
         fig.update_layout(
-            margin={"t": 10, "b": 10, "l": 10, "r": 10},
-            showlegend=False,
-            height=250,
+            margin={"t": 30, "b": 30, "l": 20, "r": 20},
+            showlegend=True,
+            legend={
+                "orientation": "h",
+                "yanchor": "bottom",
+                "y": -0.15,
+                "xanchor": "center",
+                "x": 0.5,
+            },
+            height=300,
         )
-        st.plotly_chart(fig, use_container_width=True)
+        st.plotly_chart(fig, width="stretch")
