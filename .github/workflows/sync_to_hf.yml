@@ -35,6 +35,10 @@ jobs:
                   ".github",
                   ".gitignore",
                   ".gitattributes",
+                  "img/",
+                  "models/",
+                  "data/",
+                  "notebook/",
               ],
           )
           EOF
