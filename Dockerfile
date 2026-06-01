@@ -16,4 +16,4 @@ COPY --chown=user . .
 
 EXPOSE $PORT
 
-CMD streamlit run --server.port $PORT app.py
+CMD streamlit run --server.port ${PORT:-7860} --server.address 0.0.0.0 app.py
