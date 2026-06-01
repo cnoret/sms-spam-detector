@@ -4,6 +4,7 @@
 [![TensorFlow](https://img.shields.io/badge/TensorFlow-2.18-orange?logo=tensorflow&logoColor=white)](https://www.tensorflow.org/)
 [![Streamlit](https://img.shields.io/badge/Streamlit-1.44+-red?logo=streamlit&logoColor=white)](https://streamlit.io/)
 [![Docker](https://img.shields.io/badge/Docker-ready-2496ED?logo=docker&logoColor=white)](https://www.docker.com/)
+[![Test Accuracy](https://img.shields.io/badge/Test%20Accuracy-97%25-brightgreen)](#model)
 [![License: MIT](https://img.shields.io/badge/License-MIT-brightgreen.svg)](LICENSE)
 
 A deep learning web app that classifies SMS messages as **Spam** or **Non-Spam** in real time, with confidence scoring and session analytics.
@@ -31,12 +32,27 @@ A deep learning web app that classifies SMS messages as **Spam** or **Non-Spam**
 | Containerization | Docker |
 | CI/CD | GitHub Actions → Hugging Face Spaces |
 
-## Features
+## Data Insights
 
-- Real-time spam detection with confidence score
-- Color-coded result card (green / red)
-- Random example generator for quick testing
-- Prediction history table and proportion chart
+A few findings from the exploratory analysis (5,572 messages, 87% ham / 13% spam):
+
+**Class imbalance** — The 87/13 split was handled during training with class weights (`spam × 3.73`, `ham × 0.58`) to prevent the model from defaulting to "non-spam".
+
+**Spam messages are nearly twice as long** — Average length: 142 characters for spam vs 74 for ham. Message length alone is a strong signal.
+
+**Most frequent words in spam** — `free`, `txt`, `win`, `claim`, `mobile`, `stop`, `reply`. Classic urgency/reward vocabulary that differs clearly from everyday messages.
+
+## Model
+
+**Architecture** — Lightweight by design: Embedding (128 dim) → GlobalAveragePooling1D → Dense(128, ReLU) → Dense(64, ReLU) → sigmoid. Only 153K parameters (598 KB), suitable for real-time inference.
+
+**Performance** — Evaluated on a held-out test set of 1,115 messages:
+
+| Class | Precision | Recall | F1-Score |
+| --- | --- | --- | --- |
+| Non-Spam | 0.99 | 0.98 | 0.98 |
+| Spam | 0.87 | 0.92 | 0.89 |
+| **Overall accuracy** | | | **0.97** |
 
 ## Run Locally
 
