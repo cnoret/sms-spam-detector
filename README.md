@@ -11,7 +11,7 @@ A deep learning web app that classifies SMS messages as **Spam** or **Non-Spam**
 
 **[🚀 Live Demo — Hugging Face Spaces](https://cnoret-sms-spam-detector.hf.space/)** · **[☁️ Live Demo — Streamlit Cloud](https://sms-spam-detector-cnoret.streamlit.app/)**
 
-![App Screenshot](img/screenshot.png)
+![App Screenshot](https://raw.githubusercontent.com/cnoret/sms-spam-detector/main/img/screenshot.png)
 
 ---
 
