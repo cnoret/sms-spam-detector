@@ -1,14 +1,3 @@
----
-title: SMS Spam Detector
-emoji: 📲
-colorFrom: green
-colorTo: yellow
-sdk: docker
-app_port: 7860
-pinned: false
-short_description: Streamlit app for SMS spam detection using Deep Learning.
----
-
 # SMS Spam Detector
 
 ## Overview
