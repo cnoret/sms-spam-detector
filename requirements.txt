@@ -1,5 +1,5 @@
 numpy>=2.0
-pandas
-plotly
-streamlit
+pandas>=2.0
+plotly>=5.0
+streamlit>=1.44
 tensorflow==2.18

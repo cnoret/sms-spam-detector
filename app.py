@@ -1,6 +1,10 @@
 """Streamlit app to detect spam SMS messages using a pre-trained TensorFlow model."""
 
 import os
+
+# Must be set before importing tensorflow to suppress C++ backend logs
+os.environ["TF_CPP_MIN_LOG_LEVEL"] = "2"
+
 import json
 import random
 import numpy as np
@@ -9,10 +13,7 @@ import plotly.express as px
 import streamlit as st
 import tensorflow as tf
 from tensorflow.keras.preprocessing.text import Tokenizer
-from tensorflow.keras.preprocessing.sequence import pad_sequences
-
-# Suppress TensorFlow warnings
-os.environ["TF_CPP_MIN_LOG_LEVEL"] = "2"
+from tensorflow.keras.utils import pad_sequences
 
 
 # Load model and tokenizer
@@ -26,11 +27,11 @@ def load_model():
 @st.cache_resource
 def load_tokenizer():
     """Load the pre-trained tokenizer."""
-    tokenizer = Tokenizer(num_words=1000, oov_token="<OOV>")
-    tokenizer.word_index = np.load(
+    tok = Tokenizer(num_words=1000, oov_token="<OOV>")
+    tok.word_index = np.load(
         "./models/tokenizer_word_index.npy", allow_pickle=True
     ).item()
-    return tokenizer
+    return tok
 
 
 # Load the model and tokenizer
@@ -38,7 +39,7 @@ model = load_model()
 tokenizer = load_tokenizer()
 
 # Load examples from JSON
-with open("examples.json", "r") as file:
+with open("examples.json", "r", encoding="utf-8") as file:
     examples_list = json.load(file)
 
 
@@ -54,10 +55,11 @@ def preprocess_sms(sms_text, maxlen=100):
 def predict_sms(sms_text):
     """Predict the label of the SMS message."""
     preprocessed_text = preprocess_sms(sms_text)
-    prediction = model.predict(preprocessed_text)[0][0]
-    label = "Spam" if prediction > 0.5 else "Non-Spam"
-    confidence = prediction * 100 if label == "Spam" else (1 - prediction) * 100
-    return label, confidence
+    prediction = model.predict(preprocessed_text, verbose=0)[0][0]
+    is_spam = prediction > 0.5
+    result_label = "Spam" if is_spam else "Non-Spam"
+    result_confidence = float(prediction * 100 if is_spam else (1 - prediction) * 100)
+    return result_label, result_confidence
 
 
 # Apply custom CSS
@@ -135,21 +137,21 @@ st.markdown(
 
 st.markdown("---")
 
-# Input section
-if "user_input" not in st.session_state:
-    st.session_state.user_input = random.choice(examples_list)
+# Input section — apply any pending random example before the widget renders
+if "_pending_example" in st.session_state:
+    st.session_state.user_input_area = st.session_state.pop("_pending_example")
+elif "user_input_area" not in st.session_state:
+    st.session_state.user_input_area = random.choice(examples_list)
 
 st.markdown("### 📝 Enter your message :")
-user_input = st.text_area(
-    "", value=st.session_state.user_input, height=150, key="user_input_area"
-)
+user_input = st.text_area("Enter your SMS message", height=150, key="user_input_area", label_visibility="collapsed")
 
 col1, col2 = st.columns(2)
 with col1:
     predict_button = st.button("🔍 Predict")
 with col2:
     if st.button("🎲 Random Example"):
-        st.session_state.user_input = random.choice(examples_list)
+        st.session_state["_pending_example"] = random.choice(examples_list)
         st.rerun()
 
 # Prediction history
@@ -158,7 +160,6 @@ if "history" not in st.session_state:
 
 if predict_button:
     with st.spinner("Analyzing message..."):
-        user_input = st.session_state.user_input
         if len(user_input.strip()) < 5:
             st.error(
                 "❌ The message is too short to analyze. Please enter a longer SMS."
@@ -176,16 +177,16 @@ if predict_button:
             EMOJI = "✅" if label == "Non-Spam" else "🚨"
             st.success(f"**Predicted Label:** {EMOJI} {label}")
             st.info(f"**Confidence:** {confidence:.2f}%")
-            st.progress(float(confidence) / 100)
+            st.progress(confidence / 100)
 
-        if label == "Spam":
-            st.warning("⚠️ **Suspicious SMS detected !**")
+            if label == "Spam":
+                st.warning("⚠️ **Suspicious SMS detected !**")
 
 # Display prediction history
 if st.session_state.history:
     st.markdown("---")
     st.markdown("### 📜 Prediction History")
-    st.data_editor(pd.DataFrame(st.session_state.history), use_container_width=True)
+    st.data_editor(pd.DataFrame(st.session_state.history), width="stretch")
 
 # Proportion of Spam vs Non-Spam
 if st.session_state.history:
@@ -202,7 +203,7 @@ if st.session_state.history:
         title_x=0.25,
         title_y=0.9,
         showlegend=True,
-        legend=dict(orientation="h", yanchor="bottom", y=-0.2, xanchor="center", x=0.5),
+        legend={"orientation": "h", "yanchor": "bottom", "y": -0.2, "xanchor": "center", "x": 0.5},
     )
     st.plotly_chart(fig)
 
