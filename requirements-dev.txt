@@ -1,0 +1,4 @@
+# App dependencies plus the tools used by the tests workflow
+-r requirements.txt
+pytest>=8
+ruff>=0.15

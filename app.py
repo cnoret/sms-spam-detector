@@ -23,7 +23,7 @@ def load_model():
 
 @st.cache_data
 def load_metrics():
-    with open("./models/metrics.json", "r", encoding="utf-8") as f:
+    with open("./models/metrics.json", encoding="utf-8") as f:
         return json.load(f)
 
 
@@ -31,7 +31,7 @@ bundle = load_model()
 pipeline, threshold = bundle["pipeline"], bundle["threshold"]
 metrics = load_metrics()
 
-with open("examples.json", "r", encoding="utf-8") as file:
+with open("examples.json", encoding="utf-8") as file:
     examples_list = json.load(file)
 
 
