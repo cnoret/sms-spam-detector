@@ -1,5 +1,5 @@
 # Extra dependencies to retrain the models with train.py
+# (TensorFlow is already in requirements.txt: the app serves the network)
 -r requirements.txt
-tensorflow==2.18
 spacy>=3.8,<3.9
 en_core_web_sm @ https://github.com/explosion/spacy-models/releases/download/en_core_web_sm-3.8.0/en_core_web_sm-3.8.0-py3-none-any.whl

@@ -9,9 +9,43 @@
     "test": 1032
   },
   "min_precision_target": 0.98,
-  "deployed": {
+  "tensorflow": "2.21.0",
+  "network": {
+    "name": "Word embeddings + character CNN (Keras)",
+    "threshold": 0.751,
+    "cv_f1": 0.953,
+    "epochs": 9,
+    "parameters": 673217,
+    "test": {
+      "accuracy": 0.991,
+      "precision": 0.992,
+      "recall": 0.938,
+      "f1": 0.964,
+      "confusion_matrix": {
+        "tn": 903,
+        "fp": 1,
+        "fn": 8,
+        "tp": 120
+      }
+    },
+    "test_at_0.5": {
+      "accuracy": 0.992,
+      "precision": 0.984,
+      "recall": 0.953,
+      "f1": 0.968,
+      "confusion_matrix": {
+        "tn": 902,
+        "fp": 2,
+        "fn": 6,
+        "tp": 122
+      }
+    },
+    "size_kb": 2799
+  },
+  "baseline": {
     "name": "TF-IDF (character n-grams) + logistic regression",
     "threshold": 0.481,
+    "cv_f1": 0.962,
     "test": {
       "accuracy": 0.993,
       "precision": 0.984,
@@ -38,31 +72,31 @@
     },
     "size_kb": 834
   },
-  "network": {
+  "original_network": {
     "name": "Word embedding + Dense network (original architecture)",
-    "threshold": 0.823,
+    "threshold": 0.868,
     "test": {
-      "accuracy": 0.97,
-      "precision": 0.971,
-      "recall": 0.781,
-      "f1": 0.866,
+      "accuracy": 0.968,
+      "precision": 0.97,
+      "recall": 0.766,
+      "f1": 0.856,
       "confusion_matrix": {
         "tn": 901,
         "fp": 3,
-        "fn": 28,
-        "tp": 100
+        "fn": 30,
+        "tp": 98
       }
     },
     "test_at_0.5": {
-      "accuracy": 0.973,
-      "precision": 0.939,
-      "recall": 0.836,
-      "f1": 0.884,
+      "accuracy": 0.974,
+      "precision": 0.932,
+      "recall": 0.852,
+      "f1": 0.89,
       "confusion_matrix": {
-        "tn": 897,
-        "fp": 7,
-        "fn": 21,
-        "tp": 107
+        "tn": 896,
+        "fp": 8,
+        "fn": 19,
+        "tp": 109
       }
     }
   }
