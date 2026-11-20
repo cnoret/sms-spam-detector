@@ -1,14 +1,17 @@
-# 📲 SMS Spam Detector
+# SMS Spam Detector: Catching Spam Texts with a Leak-Free Evaluation
 
-[![Python](https://img.shields.io/badge/Python-3.12-blue?logo=python&logoColor=white)](https://www.python.org/)
+[![Live App](https://img.shields.io/badge/Live_App-Streamlit-FF4B4B?logo=streamlit&logoColor=white)](https://sms-spam-detector-cnoret.streamlit.app/)
+[![Open in Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/cnoret/sms-spam-detector/blob/main/notebook/AT%26T_spam_detector.ipynb)
+[![Tests](https://github.com/cnoret/sms-spam-detector/actions/workflows/tests.yml/badge.svg)](https://github.com/cnoret/sms-spam-detector/actions/workflows/tests.yml)
+[![Python](https://img.shields.io/badge/Python-3.12-3776AB?logo=python&logoColor=white)](https://www.python.org/)
 [![scikit-learn](https://img.shields.io/badge/scikit--learn-1.7-F7931E?logo=scikitlearn&logoColor=white)](https://scikit-learn.org/)
-[![Streamlit](https://img.shields.io/badge/Streamlit-1.44+-red?logo=streamlit&logoColor=white)](https://streamlit.io/)
-[![Docker](https://img.shields.io/badge/Docker-ready-2496ED?logo=docker&logoColor=white)](https://www.docker.com/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-brightgreen.svg)](LICENSE)
 
-A web app that classifies SMS messages as **Spam** or **Non-Spam** in real time, with a spam probability and session analytics.
+**A simple TF-IDF + logistic regression model beats the original neural network once the evaluation is fixed: spam F1 0.972 vs 0.866, with 5 spams missed instead of 28 on 1,032 held-out messages.**
 
-**[🚀 Live Demo — Hugging Face Spaces](https://cnoret-sms-spam-detector.hf.space/)** · **[☁️ Live Demo — Streamlit Cloud](https://sms-spam-detector-cnoret.streamlit.app/)**
+`Data:` 5,572 SMS · 5,158 unique after deduplication · 12.4% spam · English, UCI SMS Spam Collection (early 2010s)
+
+`Live app:` [Streamlit Cloud](https://sms-spam-detector-cnoret.streamlit.app/) · [Hugging Face Spaces](https://cnoret-sms-spam-detector.hf.space/)
 
 ![App Screenshot](https://raw.githubusercontent.com/cnoret/sms-spam-detector/main/img/screenshot.png)
 
@@ -20,6 +23,7 @@ A web app that classifies SMS messages as **Spam** or **Non-Spam** in real time,
 - Compared a **TF-IDF + logistic regression** baseline with the original **word embedding + Dense** network: the simpler model wins and is the one deployed
 - Built an interactive **Streamlit** web app with real-time prediction, spam probability, and session history
 - Containerized with **Docker** and deployed on both **Hugging Face Spaces** and **Streamlit Cloud**
+- Added **pytest** and **Streamlit AppTest** checks, run with **ruff** on every push and pull request with **GitHub Actions**
 - Automated syncing between GitHub and Hugging Face with **GitHub Actions**
 
 ## Tech Stack
@@ -31,7 +35,8 @@ A web app that classifies SMS messages as **Spam** or **Non-Spam** in real time,
 | Web App | Streamlit 1.44+ |
 | Visualization | Plotly |
 | Containerization | Docker |
-| CI/CD | GitHub Actions → Hugging Face Spaces |
+| Tests | pytest, Streamlit AppTest, ruff |
+| CI/CD | GitHub Actions (tests on every push and PR, sync to Hugging Face Spaces) |
 
 ## Data Insights
 
@@ -70,6 +75,16 @@ python train.py                 # baseline + network comparison
 python train.py --skip-network  # baseline only, no TensorFlow
 ```
 
+## Tests
+
+```bash
+pip install -r requirements-dev.txt
+ruff check .
+python -m pytest
+```
+
+The suite (about 15 seconds) checks the training protocol, retrains the baseline to confirm it reproduces `models/metrics.json`, verifies the committed model on known spam and everyday messages, and drives the Streamlit app end to end with AppTest.
+
 ## Run Locally
 
 **Requires:** Docker
@@ -91,8 +106,12 @@ Open `http://localhost:7860`
 ├── preprocessing.py       # Text cleaning for the neural network
 ├── models/                # Deployed pipeline, metrics.json, original network
 ├── notebook/              # Exploratory notebook (EDA, first network)
+├── tests/                 # pytest + Streamlit AppTest
+├── .github/workflows/     # Tests, sync to Hugging Face
 ├── Dockerfile
+├── ruff.toml
 ├── requirements.txt       # App
+├── requirements-dev.txt   # App + test tools
 └── requirements-train.txt # Training
 ```
 
