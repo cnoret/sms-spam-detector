@@ -13,7 +13,8 @@ import plotly.express as px
 import streamlit as st
 import tensorflow as tf
 from tensorflow.keras.preprocessing.text import Tokenizer
-from tensorflow.keras.utils import pad_sequences
+
+from preprocessing import NUM_WORDS, OOV_TOKEN, get_nlp, to_padded_sequences
 
 st.set_page_config(
     page_title="SMS Spam Detector",
@@ -29,7 +30,7 @@ def load_model():
 
 @st.cache_resource
 def load_tokenizer():
-    tok = Tokenizer(num_words=1000, oov_token="<OOV>")
+    tok = Tokenizer(num_words=NUM_WORDS, oov_token=OOV_TOKEN)
     tok.word_index = np.load(
         "./models/tokenizer_word_index.npy", allow_pickle=True
     ).item()
@@ -38,14 +39,15 @@ def load_tokenizer():
 
 model = load_model()
 tokenizer = load_tokenizer()
+get_nlp()  # load spaCy once at startup, not on the first prediction
 
 with open("examples.json", "r", encoding="utf-8") as file:
     examples_list = json.load(file)
 
 
-def preprocess_sms(sms_text, maxlen=100):
-    sequence = tokenizer.texts_to_sequences([sms_text])
-    return pad_sequences(sequence, maxlen=maxlen, padding="post", truncating="post")
+def preprocess_sms(sms_text):
+    # Same cleaning and sequence length as in training (see preprocessing.py)
+    return to_padded_sequences([sms_text], tokenizer)
 
 
 def predict_sms(sms_text):
