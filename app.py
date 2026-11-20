@@ -1,20 +1,12 @@
-"""Streamlit app to detect spam SMS messages using a pre-trained TensorFlow model."""
-
-import os
-
-# Must be set before importing tensorflow to suppress C++ backend logs
-os.environ["TF_CPP_MIN_LOG_LEVEL"] = "2"
+"""Streamlit app to detect spam SMS messages with a TF-IDF + logistic regression model."""
 
 import json
 import random
-import numpy as np
+
+import joblib
 import pandas as pd
 import plotly.express as px
 import streamlit as st
-import tensorflow as tf
-from tensorflow.keras.preprocessing.text import Tokenizer
-
-from preprocessing import NUM_WORDS, OOV_TOKEN, get_nlp, to_padded_sequences
 
 st.set_page_config(
     page_title="SMS Spam Detector",
@@ -25,64 +17,65 @@ st.set_page_config(
 
 @st.cache_resource
 def load_model():
-    return tf.keras.models.load_model("./models/model_wordembed.keras")
+    """Fitted pipeline and decision threshold, both produced by train.py."""
+    return joblib.load("./models/spam_classifier.joblib")
 
 
-@st.cache_resource
-def load_tokenizer():
-    tok = Tokenizer(num_words=NUM_WORDS, oov_token=OOV_TOKEN)
-    tok.word_index = np.load(
-        "./models/tokenizer_word_index.npy", allow_pickle=True
-    ).item()
-    return tok
+@st.cache_data
+def load_metrics():
+    with open("./models/metrics.json", "r", encoding="utf-8") as f:
+        return json.load(f)
 
 
-model = load_model()
-tokenizer = load_tokenizer()
-get_nlp()  # load spaCy once at startup, not on the first prediction
+bundle = load_model()
+pipeline, threshold = bundle["pipeline"], bundle["threshold"]
+metrics = load_metrics()
 
 with open("examples.json", "r", encoding="utf-8") as file:
     examples_list = json.load(file)
 
 
-def preprocess_sms(sms_text):
-    # Same cleaning and sequence length as in training (see preprocessing.py)
-    return to_padded_sequences([sms_text], tokenizer)
-
-
 def predict_sms(sms_text):
-    prediction = model.predict(preprocess_sms(sms_text), verbose=0)[0][0]
-    is_spam = prediction > 0.5
+    spam_proba = float(pipeline.predict_proba([sms_text])[0, 1])
+    is_spam = spam_proba >= threshold
     result_label = "Spam" if is_spam else "Non-Spam"
-    result_confidence = float(prediction * 100 if is_spam else (1 - prediction) * 100)
-    return result_label, result_confidence
+    return result_label, spam_proba * 100
 
 
 # ── Sidebar ───────────────────────────────────────────────────────────────────
 with st.sidebar:
+    test = metrics["deployed"]["test"]
+    cm = test["confusion_matrix"]
     st.markdown("#### 📊 Model Performance")
-    st.metric("Test Accuracy", "97%")
     col_a, col_b = st.columns(2)
     with col_a:
-        st.metric("Spam F1", "0.89")
+        st.metric("Spam precision", f"{test['precision']:.1%}")
+        st.metric("Spam F1", f"{test['f1']:.2f}")
     with col_b:
-        st.metric("Ham F1", "0.98")
-    st.caption("1,115 held-out messages · UCI SMS Spam Collection")
+        st.metric("Spam recall", f"{test['recall']:.1%}")
+        st.metric("Accuracy", f"{test['accuracy']:.1%}")
+    st.caption(
+        f"{metrics['data']['test']:,} held-out unique messages · "
+        f"{cm['fp']} legitimate SMS flagged, {cm['fn']} spams missed"
+    )
 
     st.markdown("---")
 
-    st.markdown("#### 🧠 Architecture")
+    st.markdown("#### 🧠 Model")
     st.markdown(
-        """
-        | Layer | Details |
+        f"""
+        | Step | Details |
         | --- | --- |
-        | Embedding | dim 128 · vocab 1K |
-        | Pooling | GlobalAveragePooling1D |
-        | Dense × 2 | 128 → 64 · ReLU |
-        | Output | sigmoid |
+        | Features | TF-IDF · character 2–5-grams |
+        | Classifier | Logistic regression (balanced) |
+        | Threshold | {threshold:.2f} (precision ≥ {metrics['min_precision_target']:.0%}) |
         """
     )
-    st.caption("153K parameters · 598 KB")
+    if "network" in metrics:
+        st.caption(
+            f"Beats the original neural network on the same split: "
+            f"F1 {test['f1']:.2f} vs {metrics['network']['test']['f1']:.2f}"
+        )
 
     st.markdown("---")
 
@@ -161,16 +154,16 @@ with col_result:
             st.session_state.last_result = {"error": True}
         else:
             with st.spinner("Analyzing..."):
-                label, confidence = predict_sms(user_input.strip())
+                label, spam_pct = predict_sms(user_input.strip())
             st.session_state.history.append({
                 "Message": user_input.strip(),
                 "Label": label,
-                "Confidence": f"{confidence:.2f}%",
+                "Spam probability": f"{spam_pct:.1f}%",
             })
             st.session_state.last_result = {
                 "error": False,
                 "label": label,
-                "confidence": confidence,
+                "spam_pct": spam_pct,
             }
 
     result = st.session_state.last_result
@@ -185,7 +178,7 @@ with col_result:
         st.error("❌ Message too short. Please enter a longer SMS.")
     else:
         label = result["label"]
-        confidence = result["confidence"]
+        spam_pct = result["spam_pct"]
         color = "#28a745" if label == "Non-Spam" else "#dc3545"
         emoji = "✅" if label == "Non-Spam" else "🚨"
         st.markdown(
@@ -195,11 +188,11 @@ with col_result:
                 <div style="font-size:2.8em;">{emoji}</div>
                 <div style="font-size:1.9em;font-weight:700;margin:10px 0;">{label}</div>
                 <div style="font-size:1.1em;margin-bottom:14px;">
-                    Confidence: <b>{confidence:.1f}%</b>
+                    Spam probability: <b>{spam_pct:.1f}%</b>
                 </div>
                 <div style="background:rgba(255,255,255,0.3);border-radius:6px;height:8px;">
                     <div style="background:white;border-radius:6px;height:8px;
-                                width:{confidence:.0f}%;"></div>
+                                width:{spam_pct:.0f}%;"></div>
                 </div>
             </div>
             """,
@@ -228,7 +221,9 @@ if st.session_state.history:
             column_config={
                 "Message": st.column_config.TextColumn("Message", width="large"),
                 "Label": st.column_config.TextColumn("Label", width="small"),
-                "Confidence": st.column_config.TextColumn("Confidence", width="small"),
+                "Spam probability": st.column_config.TextColumn(
+                    "Spam probability", width="small"
+                ),
             },
         )
 

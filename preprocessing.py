@@ -1,4 +1,4 @@
-"""Text preprocessing shared by training and inference.
+"""Text preprocessing for the neural network (train.py comparison and notebook).
 
 The model was trained on messages cleaned with ``clean_text`` and padded to
 ``MAXLEN`` tokens. Any prediction must go through the same steps, otherwise
