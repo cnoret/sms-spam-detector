@@ -52,7 +52,6 @@ jobs:
                   ".gitignore",
                   ".gitattributes",
                   "img/",
-                  "models/",
                   "data/",
                   "notebook/",
               ],
