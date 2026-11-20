@@ -1,7 +1,7 @@
 # SMS Spam Detector: A Deep Learning Spam Filter, Checked Against a Baseline
 
 [![Live App](https://img.shields.io/badge/Live_App-Streamlit-FF4B4B?logo=streamlit&logoColor=white)](https://sms-spam-detector-cnoret.streamlit.app/)
-[![Open in Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/cnoret/sms-spam-detector/blob/main/notebook/AT%26T_spam_detector.ipynb)
+[![Open in Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/cnoret/sms-spam-detector/blob/main/notebook/sms_spam_detector.ipynb)
 [![Tests](https://github.com/cnoret/sms-spam-detector/actions/workflows/tests.yml/badge.svg)](https://github.com/cnoret/sms-spam-detector/actions/workflows/tests.yml)
 [![Python](https://img.shields.io/badge/Python-3.12-3776AB?logo=python&logoColor=white)](https://www.python.org/)
 [![TensorFlow](https://img.shields.io/badge/TensorFlow-2.21-FF6F00?logo=tensorflow&logoColor=white)](https://www.tensorflow.org/)
@@ -45,7 +45,7 @@
 
 ## Data Insights
 
-A few findings from the exploratory analysis (5,572 messages, 87% ham / 13% spam):
+A few findings from the [analysis notebook](notebook/sms_spam_detector.ipynb) (5,572 messages, 87% ham / 13% spam), which also covers the leakage of the first evaluation, the network's learning curves, a bootstrap comparison with the baseline and an error analysis:
 
 **Duplicates** — 414 rows are exact copies of another message (5,158 unique messages). Left in, they put copies of training messages in the test set and inflate the scores, so they are removed before splitting.
 
@@ -135,7 +135,7 @@ Open `http://localhost:7860`
 ├── train.py               # Training and evaluation of all models (writes models/)
 ├── preprocessing.py       # spaCy cleaning for the first network (reference)
 ├── models/                # Network (.keras), baseline (.joblib), metrics.json
-├── notebook/              # Exploratory notebook (EDA, first network)
+├── notebook/              # Analysis: EDA, leakage, network vs baseline, errors
 ├── tests/                 # pytest + Streamlit AppTest
 ├── .github/workflows/     # Tests, sync to Hugging Face
 ├── Dockerfile
