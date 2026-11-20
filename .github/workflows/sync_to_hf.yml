@@ -54,6 +54,7 @@ jobs:
                   "img/",
                   "data/",
                   "notebook/",
+                  "tests/",
               ],
           )
           EOF

@@ -9,3 +9,6 @@ README.md
 LICENSE
 __pycache__/
 *.py[cod]
+tests/
+requirements-dev.txt
+ruff.toml
