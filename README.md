@@ -1,7 +1,7 @@
 # 📲 SMS Spam Detector
 
 [![Python](https://img.shields.io/badge/Python-3.12-blue?logo=python&logoColor=white)](https://www.python.org/)
-[![scikit-learn](https://img.shields.io/badge/scikit--learn-1.9-F7931E?logo=scikitlearn&logoColor=white)](https://scikit-learn.org/)
+[![scikit-learn](https://img.shields.io/badge/scikit--learn-1.7-F7931E?logo=scikitlearn&logoColor=white)](https://scikit-learn.org/)
 [![Streamlit](https://img.shields.io/badge/Streamlit-1.44+-red?logo=streamlit&logoColor=white)](https://streamlit.io/)
 [![Docker](https://img.shields.io/badge/Docker-ready-2496ED?logo=docker&logoColor=white)](https://www.docker.com/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-brightgreen.svg)](LICENSE)
@@ -26,7 +26,7 @@ A web app that classifies SMS messages as **Spam** or **Non-Spam** in real time,
 
 | Layer | Technology |
 | --- | --- |
-| Model | scikit-learn 1.9 (TF-IDF + logistic regression) |
+| Model | scikit-learn 1.7 (TF-IDF + logistic regression) |
 | Comparison | TensorFlow 2.18, Keras (Embedding + Dense), spaCy |
 | Web App | Streamlit 1.44+ |
 | Visualization | Plotly |

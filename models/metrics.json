@@ -1,6 +1,6 @@
 {
   "trained_on": "2026-11-20",
-  "scikit_learn": "1.9.1",
+  "scikit_learn": "1.7.2",
   "data": {
     "messages_raw": 5572,
     "messages_unique": 5158,
