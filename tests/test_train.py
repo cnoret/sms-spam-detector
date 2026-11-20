@@ -66,5 +66,44 @@ def test_train_baseline_reproduces_committed_metrics(data, tmp_path, monkeypatch
     committed = json.loads(train.METRICS_PATH.read_text(encoding="utf-8"))
     assert committed["data"]["train"] == len(tr)
     assert committed["data"]["test"] == len(te)
-    assert result["threshold"] == pytest.approx(committed["deployed"]["threshold"], abs=0.01)
-    assert result["test"]["f1"] == pytest.approx(committed["deployed"]["test"]["f1"], abs=0.005)
+    assert result["threshold"] == pytest.approx(committed["baseline"]["threshold"], abs=0.01)
+    assert result["test"]["f1"] == pytest.approx(committed["baseline"]["test"]["f1"], abs=0.005)
+
+
+def test_class_weight_balances_classes():
+    weights = train._class_weight([0, 0, 0, 1])
+    assert weights == {0: pytest.approx(4 / 6), 1: pytest.approx(2.0)}
+
+
+def test_network_vocabulary_survives_saving(tmp_path):
+    """Line breaks are kept out of the vocabulary, so the saved model loads back."""
+    import keras
+
+    texts = np.array(
+        ["WIN a prize\r\nnow", "see you at 7", "Call 0800 now\nfree", "ok"], dtype=object
+    )
+    model = train.build_network(texts)
+    for layer in model.layers:
+        if isinstance(layer, keras.layers.TextVectorization):
+            assert not any("\n" in t or "\r" in t for t in layer.get_vocabulary())
+
+    path = tmp_path / "net.keras"
+    model.save(path)
+    loaded = keras.models.load_model(path)
+    np.testing.assert_allclose(
+        train.network_proba(loaded, texts), train.network_proba(model, texts), rtol=1e-5
+    )
+
+
+@pytest.mark.slow
+def test_train_network_reproduces_committed_metrics(data, tmp_path, monkeypatch):
+    """Full network retraining (about 2 minutes): python -m pytest --run-slow."""
+    monkeypatch.setattr(train, "NETWORK_PATH", tmp_path / "net.keras")
+    tr, te = train_test_split(
+        data, test_size=0.2, stratify=data.label, random_state=train.SEED
+    )
+    result = train.train_network(tr, te)
+
+    committed = json.loads(train.METRICS_PATH.read_text(encoding="utf-8"))["network"]
+    assert result["epochs"] == committed["epochs"]
+    assert result["test"]["f1"] == pytest.approx(committed["test"]["f1"], abs=0.01)

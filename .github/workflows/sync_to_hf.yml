@@ -25,7 +25,7 @@ jobs:
             printf 'sdk: docker\n'
             printf 'app_port: 7860\n'
             printf 'pinned: false\n'
-            printf 'short_description: Streamlit app for SMS spam detection (TF-IDF + LogReg).\n'
+            printf 'short_description: SMS spam detection, Keras CNN vs TF-IDF baseline.\n'
             printf -- '---\n\n'
             cat README.md
           } > README_HF.md && mv README_HF.md README.md
