@@ -14,8 +14,8 @@ SPAM = "WINNER!! You have won a £900 prize. Call 09061701461 to claim now"
 HAM = "Are we still meeting for lunch at noon tomorrow?"
 
 
-def fr(x, digits=3):
-    return f"{x:.{digits}f}".replace(".", ",")
+def fmt(x, digits=3):
+    return f"{x:.{digits}f}"
 
 
 @pytest.fixture
@@ -39,22 +39,22 @@ def predict(at, message):
 
 
 def test_app_starts_with_an_example_and_the_network(app):
-    assert "Détecteur de spam SMS" in page_html(app)
+    assert "SMS Spam Detector" in page_html(app)
     assert app.text_area(key="user_input_area").value
     assert app.segmented_control(key="model_choice").value == "network"
-    assert [t.label.split()[-1] for t in app.tabs] == ["Analyser", "Performance", "Méthode"]
+    assert [t.label.split()[-1] for t in app.tabs] == ["Analyze", "Performance", "Method"]
 
 
 def test_header_shows_the_network_scores(app):
     values = [m.value for m in app.metric]
-    assert fr(METRICS["network"]["test"]["f1"]) in values
+    assert fmt(METRICS["network"]["test"]["f1"]) in values
 
 
 def test_performance_tab_compares_both_models(app):
     perf = app.tabs[1]
     table = perf.dataframe[0].value
     for key in ("network", "baseline"):
-        assert fr(METRICS[key]["test"]["f1"]) in table["F1 spam"].tolist()
+        assert fmt(METRICS[key]["test"]["f1"]) in table["Spam F1"].tolist()
     # One confusion matrix per model.
     assert len(perf.get("plotly_chart")) == 2
 
@@ -69,7 +69,7 @@ def test_predicts_spam(app):
 
 def test_predicts_non_spam(app):
     html = predict(app, HAM)
-    assert ">Légitime<" in html
+    assert ">Legit<" in html
 
 
 @pytest.mark.parametrize("model_key", ["network", "baseline"])
@@ -97,7 +97,7 @@ def test_explanation_escapes_html(app):
 
 
 def test_example_pills_fill_the_text_area(app):
-    app.pills(key="example_pick").set_value("Message perso").run()
+    app.pills(key="example_pick").set_value("Personal").run()
     assert not app.exception
     assert app.text_area(key="user_input_area").value == HAM
     assert app.pills(key="example_pick").value is None
@@ -107,19 +107,19 @@ def test_history_records_the_model_and_exports_csv(app):
     app.segmented_control(key="model_choice").set_value("baseline").run()
     predict(app, HAM)
     entry = app.session_state.history[0]
-    assert entry["Modèle"] == "Baseline"
-    assert entry["Verdict"] == "Légitime"
+    assert entry["Model"] == "Baseline"
+    assert entry["Verdict"] == "Legit"
     assert len(app.get("download_button")) == 1
 
 
 def test_clear_empties_the_history(app):
     predict(app, HAM)
-    next(b for b in app.button if b.label == "Effacer").click().run()
+    next(b for b in app.button if b.label == "Clear").click().run()
     assert app.session_state.history == []
     assert app.session_state.last_result is None
 
 
 def test_rejects_too_short_message(app):
     predict(app, "hi")
-    assert "trop court" in app.error[0].value
+    assert "too short" in app.error[0].value
     assert app.session_state.history == []

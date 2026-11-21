@@ -25,7 +25,7 @@
 - Chose the architecture with **5-fold cross-validation on the train set only**, out of six candidates (BiGRU, character CNNs and their combinations)
 - Set up a leak-free evaluation (deduplication, stratified split, threshold chosen out of fold) in a reproducible `train.py`, shared by every model
 - Benchmarked the network against a **TF-IDF + logistic regression** baseline and against the first version of the network, on the same held-out messages
-- Built an interactive **Streamlit** web app (French UI): pick the model, see both models' scores side by side, a word-by-word explanation of the decision, and the test-set confusion matrices
+- Built an interactive **Streamlit** web app: pick the model, see both models' scores side by side, a word-by-word explanation of the decision, and the test-set confusion matrices
 - Containerized with **Docker** and deployed on both **Hugging Face Spaces** and **Streamlit Cloud**
 - Added **pytest** and **Streamlit AppTest** checks, run with **ruff** on every push and pull request with **GitHub Actions**
 - Automated syncing between GitHub and Hugging Face with **GitHub Actions**
