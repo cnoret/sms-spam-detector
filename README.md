@@ -25,7 +25,7 @@
 - Chose the architecture with **5-fold cross-validation on the train set only**, out of six candidates (BiGRU, character CNNs and their combinations)
 - Set up a leak-free evaluation (deduplication, stratified split, threshold chosen out of fold) in a reproducible `train.py`, shared by every model
 - Benchmarked the network against a **TF-IDF + logistic regression** baseline and against the first version of the network, on the same held-out messages
-- Built an interactive **Streamlit** web app where you pick the model and see both models' scores side by side
+- Built an interactive **Streamlit** web app (French UI): pick the model, see both models' scores side by side, a word-by-word explanation of the decision, and the test-set confusion matrices
 - Containerized with **Docker** and deployed on both **Hugging Face Spaces** and **Streamlit Cloud**
 - Added **pytest** and **Streamlit AppTest** checks, run with **ruff** on every push and pull request with **GitHub Actions**
 - Automated syncing between GitHub and Hugging Face with **GitHub Actions**
@@ -37,7 +37,7 @@
 | Neural network | TensorFlow 2.21, Keras 3 (TextVectorization, embeddings, Conv1D) |
 | Baseline | scikit-learn 1.7 (TF-IDF + logistic regression) |
 | First network (reference) | Keras (Embedding + Dense), spaCy |
-| Web App | Streamlit 1.44+ |
+| Web App | Streamlit 1.50+ |
 | Visualization | Plotly |
 | Containerization | Docker |
 | Tests | pytest, Streamlit AppTest, ruff |
@@ -113,7 +113,7 @@ ruff check .
 python -m pytest
 ```
 
-The suite (about 20 seconds) checks the training protocol, retrains the baseline to confirm it reproduces `models/metrics.json`, checks that the network saves and loads back with its vocabulary, verifies both committed models on known spam and everyday messages, and drives the Streamlit app end to end with AppTest (model switch included). `python -m pytest --run-slow` also retrains the network (about 2 minutes) and compares it with the committed metrics.
+The suite (about 20 seconds) checks the training protocol, retrains the baseline to confirm it reproduces `models/metrics.json`, checks that the network saves and loads back with its vocabulary, verifies both committed models on known spam and everyday messages, and drives the Streamlit app end to end with AppTest (model switch, word-by-word explanation, examples and history included). `python -m pytest --run-slow` also retrains the network (about 2 minutes) and compares it with the committed metrics.
 
 ## Run Locally
 

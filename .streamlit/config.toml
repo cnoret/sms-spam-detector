@@ -1,6 +1,20 @@
 [theme]
-primaryColor = "#007BFF"
-backgroundColor = "#f8f9fa"
-secondaryBackgroundColor = "#e9ecef"
-textColor = "#333333"
-font = "sans serif"
+base = "light"
+primaryColor = "#3B4BC8"
+backgroundColor = "#F6F7F9"
+secondaryBackgroundColor = "#FFFFFF"
+textColor = "#111827"
+linkColor = "#3B4BC8"
+borderColor = "#E5E7EB"
+showWidgetBorder = true
+baseRadius = "0.6rem"
+font = "Inter:https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap, sans-serif"
+headingFontSizes = ["2rem", "1.5rem", "1.25rem", "1.1rem", "1rem", "0.9rem"]
+headingFontWeights = [700, 600, 600, 600, 600, 600]
+dataframeHeaderBackgroundColor = "#F9FAFB"
+redColor = "#B42318"
+blueColor = "#1D4E89"
+chartCategoricalColors = ["#3B4BC8", "#9CA3AF", "#B42318", "#1D4E89"]
+
+[client]
+toolbarMode = "minimal"

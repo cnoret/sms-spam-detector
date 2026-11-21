@@ -1,44 +1,72 @@
-"""Streamlit app to detect spam SMS with a neural network, compared with a baseline.
+"""Streamlit app: detect spam SMS with a neural network, compared with a baseline.
 
 Both models are trained and evaluated by train.py under the same protocol:
 - the neural network (word embeddings + character CNN, Keras) is the model studied,
 - TF-IDF + logistic regression is the comparison baseline.
+
+The interface is in French; the models read English SMS.
 """
 
+import html
 import json
+import math
 import os
 import random
 
 import joblib
 import pandas as pd
-import plotly.express as px
+import plotly.graph_objects as go
 import streamlit as st
 
 os.environ.setdefault("TF_CPP_MIN_LOG_LEVEL", "2")
 
 st.set_page_config(
-    page_title="SMS Spam Detector",
-    page_icon="📲",
+    page_title="Détecteur de spam SMS",
+    page_icon=":material/sms:",
     layout="wide",
+    initial_sidebar_state="collapsed",
 )
+
+ACCENT = "#3B4BC8"
+SPAM_COLOR = "#B42318"
+HAM_COLOR = "#1D4E89"
+MUTED = "#4B5563"
 
 MODELS = {
     "network": {
-        "label": "🧠 Neural network",
-        "short": "🧠 Network",
-        "features": "Word embeddings + character CNN",
-        "classifier": "Keras · Dense + sigmoid",
+        "label": "Réseau de neurones",
+        "short": "Réseau",
+        "by": "selon le réseau de neurones",
+        "features": "Embeddings de mots + CNN sur les caractères",
+        "classifier": "Keras · couche dense + sigmoïde",
     },
     "baseline": {
-        "label": "📏 Baseline",
-        "short": "📏 Baseline",
-        "features": "TF-IDF · character 2–5-grams",
-        "classifier": "Logistic regression (balanced)",
+        "label": "Baseline TF-IDF",
+        "short": "Baseline",
+        "by": "selon la baseline TF-IDF",
+        "features": "TF-IDF · n-grammes de caractères (2 à 5)",
+        "classifier": "Régression logistique (classes équilibrées)",
     },
 }
 
+EXAMPLES = {
+    "Gain fictif": "WINNER!! You have won a £900 prize. Call 09061701461 to claim now",
+    "Phishing bancaire": (
+        "Alert! Your bank account has suspicious activity. "
+        "Click to verify: http://bank.fakealert.com"
+    ),
+    "Message perso": "Are we still meeting for lunch at noon tomorrow?",
+}
 
-@st.cache_resource
+RANDOM_EXAMPLE = ":material/shuffle: Au hasard"
+MIN_LENGTH = 5
+MAX_EXPLAINED_WORDS = 60
+REPO_URL = "https://github.com/cnoret/sms-spam-detector"
+LINKEDIN_URL = "https://www.linkedin.com/in/christophenoret/"
+
+
+# ── Models ────────────────────────────────────────────────────────────────────
+@st.cache_resource(show_spinner="Chargement du réseau de neurones…")
 def load_network():
     """Keras model with its text vectorization inside: it takes the raw message."""
     import keras
@@ -58,245 +86,554 @@ def load_metrics():
         return json.load(f)
 
 
+@st.cache_data
+def load_examples():
+    with open("examples.json", encoding="utf-8") as f:
+        return json.load(f)
+
+
 metrics = load_metrics()
 network, baseline = load_network(), load_baseline()
 
-with open("examples.json", encoding="utf-8") as file:
-    examples_list = json.load(file)
 
-
-def spam_probability(model_key, sms_text):
+def spam_probabilities(model_key, messages):
+    """Spam probability of each message, in one call to the model."""
     if model_key == "network":
         import tensorflow as tf
 
-        return float(network(tf.constant([[sms_text]]), training=False)[0, 0])
-    return float(baseline.predict_proba([sms_text])[0, 1])
+        batch = tf.constant(list(messages))[:, None]
+        return [float(p) for p in network(batch, training=False)[:, 0]]
+    return [float(p) for p in baseline.predict_proba(list(messages))[:, 1]]
 
 
 def verdict(model_key, proba):
-    return "Spam" if proba >= metrics[model_key]["threshold"] else "Non-Spam"
+    return "Spam" if proba >= metrics[model_key]["threshold"] else "Légitime"
 
 
-# ── Sidebar ───────────────────────────────────────────────────────────────────
-with st.sidebar:
-    selected = st.session_state.get("model_choice", "network")
+def _logit(p, eps=1e-7):
+    p = min(max(p, eps), 1 - eps)
+    return math.log(p / (1 - p))
 
-    st.markdown("#### 📊 Model Performance")
-    rows = {
-        "Spam precision": lambda t: f"{t['precision']:.1%}",
-        "Spam recall": lambda t: f"{t['recall']:.1%}",
-        "Spam F1": lambda t: f"{t['f1']:.3f}",
-        "Legit flagged": lambda t: str(t["confusion_matrix"]["fp"]),
-        "Spams missed": lambda t: str(t["confusion_matrix"]["fn"]),
-    }
-    header = " | ".join(MODELS[k]["short"] for k in MODELS)
-    table = [f"| | {header} |", "| --- | --- | --- |"]
-    for name, fmt in rows.items():
-        table.append(f"| {name} | " + " | ".join(fmt(metrics[k]["test"]) for k in MODELS) + " |")
-    st.markdown("\n".join(table))
-    st.caption(
-        f"Same split for both: {metrics['data']['test']:,} held-out unique messages, "
-        f"threshold set for precision ≥ {metrics['min_precision_target']:.0%} "
-        "on out-of-fold predictions of the train set."
-    )
-    if "original_network" in metrics:
-        st.caption(
-            f"First version of the network (Embedding + Dense, spaCy cleaning): "
-            f"spam F1 {metrics['original_network']['test']['f1']:.3f} on the same test set."
-        )
 
-    st.markdown("---")
+def word_effects(model_key, message):
+    """Occlusion: drop each word in turn and measure the change in log-odds.
 
-    st.markdown(f"#### Selected model: {MODELS[selected]['label']}")
-    st.markdown(
-        f"""
-        | Step | Details |
-        | --- | --- |
-        | Features | {MODELS[selected]['features']} |
-        | Classifier | {MODELS[selected]['classifier']} |
-        | Threshold | {metrics[selected]['threshold']:.2f} |
-        """
-    )
-
-    st.markdown("---")
-
-    st.info(
-        "Trained on ~5,500 messages (UCI dataset, 2010s, English only). "
-        "For educational purposes - not production-ready.",
-        icon="⚠️",
-    )
-
-    st.markdown("---")
-
-    st.markdown(
-        "<div style='text-align:center;'>"
-        "<p style='color:#888;font-size:0.85em;margin-bottom:8px;'>Made by</p>"
-        "<a href='https://www.linkedin.com/in/christophenoret/' target='_blank'>"
-        "<img src='https://img.shields.io/badge/Christophe_Noret-0A66C2?logo=linkedin&logoColor=white'/>"
-        "</a></div>",
-        unsafe_allow_html=True,
-    )
-
-# ── CSS ───────────────────────────────────────────────────────────────────────
-st.markdown(
+    A positive effect means the word pushes the message towards spam.
+    Every variant goes through the model in a single batch.
     """
+    words = message.split()[:MAX_EXPLAINED_WORDS]
+    variants = [" ".join(words[:i] + words[i + 1 :]) for i in range(len(words))]
+    probas = spam_probabilities(model_key, [message, *variants])
+    full = _logit(probas[0])
+    return [(w, full - _logit(p)) for w, p in zip(words, probas[1:], strict=True)]
+
+
+# ── Formatting (French conventions) ──────────────────────────────────────────
+NBSP = "\u00a0"
+
+
+def fr_num(x, digits=3):
+    return f"{x:.{digits}f}".replace(".", ",")
+
+
+def fr_pct(x, digits=1):
+    return f"{x * 100:.{digits}f}{NBSP}%".replace(".", ",")
+
+
+def fr_int(n):
+    return f"{n:,}".replace(",", NBSP)
+
+
+def fr_proba(p):
+    """Probability as a percentage, without claiming 0 % or 100 %."""
+    if p >= 0.999:
+        return f">{NBSP}99,9{NBSP}%"
+    if p < 0.001:
+        return f"<{NBSP}0,1{NBSP}%"
+    return fr_pct(p)
+
+
+def plural(n, singular, plural_form):
+    return f"{fr_int(n)} {singular if n <= 1 else plural_form}"
+
+
+# ── Session state ─────────────────────────────────────────────────────────────
+st.session_state.setdefault("history", [])
+st.session_state.setdefault("last_result", None)
+if "user_input_area" not in st.session_state:
+    st.session_state.user_input_area = random.choice(load_examples())
+
+
+def use_example():
+    """Put the picked example in the text area, then release the pill."""
+    pick = st.session_state.example_pick
+    if pick == RANDOM_EXAMPLE:
+        st.session_state.user_input_area = random.choice(load_examples())
+    elif pick in EXAMPLES:
+        st.session_state.user_input_area = EXAMPLES[pick]
+    st.session_state.example_pick = None
+
+
+def clear_history():
+    st.session_state.history = []
+    st.session_state.last_result = None
+
+
+def selected_model():
+    return st.session_state.get("model_choice") or "network"
+
+
+# ── Styles ────────────────────────────────────────────────────────────────────
+st.markdown(
+    f"""
     <style>
-        footer { visibility: hidden; }
-        h1 { text-align: center; }
+      footer {{ visibility: hidden; }}
+      .block-container {{ padding-top: 2.2rem; max-width: 1200px; }}
+      .app-header {{ display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+                     margin-bottom: 0.4rem; }}
+      .app-logo {{ width: 36px; height: 36px; border-radius: 9px; background: {ACCENT};
+                   display: flex; align-items: center; justify-content: center; }}
+      .app-title {{ font-size: 1.45rem; font-weight: 700; color: #111827; }}
+      .app-badge {{ font-size: 0.75rem; font-weight: 500; color: #374151;
+                    background: #F3F4F6; border: 1px solid #E5E7EB; border-radius: 999px;
+                    padding: 2px 10px; }}
+      .app-subtitle {{ color: {MUTED}; margin: 0 0 1rem 0; }}
+      .verdict {{ display: flex; align-items: center; gap: 14px; margin-bottom: 14px; }}
+      .verdict-icon {{ width: 48px; height: 48px; border-radius: 12px; display: flex;
+                       align-items: center; justify-content: center; flex: none; }}
+      .verdict-label {{ font-size: 1.6rem; font-weight: 700; line-height: 1.1; }}
+      .muted {{ color: {MUTED}; font-size: 0.85rem; }}
+      .proba-row {{ display: flex; justify-content: space-between; font-size: 0.85rem;
+                    margin-bottom: 6px; }}
+      .proba-track {{ position: relative; height: 10px; background: #EEF0F3;
+                      border-radius: 999px; }}
+      .proba-fill {{ height: 10px; border-radius: 999px; }}
+      .proba-threshold {{ position: absolute; top: -5px; width: 2px; height: 20px;
+                          background: #111827; }}
+      .mono {{ font-variant-numeric: tabular-nums; font-weight: 500; }}
+      .compare {{ display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px;
+                  font-size: 0.9rem; margin-top: 6px; }}
+      .section-sep {{ border-top: 1px solid #E5E7EB; margin: 16px 0 12px; }}
+      .words {{ font-size: 1rem; line-height: 2.1; }}
+      .words mark {{ color: #111827; border-radius: 4px; padding: 2px 4px; }}
+      .legend-dot {{ display: inline-block; width: 10px; height: 10px; border-radius: 3px;
+                     margin: 0 4px 0 10px; vertical-align: middle; }}
+      .placeholder {{ color: {MUTED}; text-align: center; padding: 56px 12px; }}
     </style>
     """,
     unsafe_allow_html=True,
 )
 
+LOGO = (
+    '<svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" '
+    'stroke="#FFFFFF" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">'
+    '<path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>'
+    '<path d="M9 10l2 2 4-4"></path></svg>'
+)
+ICON_SPAM = (
+    f'<svg aria-hidden="true" width="24" height="24" viewBox="0 0 24 24" fill="none" '
+    f'stroke="{SPAM_COLOR}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">'
+    '<path d="M12 9v4"></path><path d="M12 17h.01"></path>'
+    '<path d="M10.3 3.9L1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z">'
+    "</path></svg>"
+)
+ICON_HAM = (
+    f'<svg aria-hidden="true" width="24" height="24" viewBox="0 0 24 24" fill="none" '
+    f'stroke="{HAM_COLOR}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">'
+    '<path d="M20 6L9 17l-5-5"></path></svg>'
+)
+
 # ── Header ────────────────────────────────────────────────────────────────────
-st.title("📲 SMS Spam Detector")
+network_test = metrics["network"]["test"]
+baseline_test = metrics["baseline"]["test"]
+
 st.markdown(
-    "<p style='text-align:center;font-size:1.2em;color:#555555;margin-bottom:1.5rem;'>"
-    "Analyze SMS messages and determine whether they're <b>Spam</b> or <b>Non-Spam</b>."
-    "</p>",
+    f"""
+    <div class="app-header">
+      <div class="app-logo">{LOGO}</div>
+      <h1 class="app-title" style="margin:0;padding:0;font-size:1.45rem">Détecteur de spam SMS</h1>
+      <span class="app-badge">Réseau Keras · mots + caractères</span>
+    </div>
+    <p class="app-subtitle">Un réseau de neurones entraîné sur la UCI SMS Spam Collection,
+    comparé à une baseline TF-IDF sur le même jeu de test.</p>
+    """,
     unsafe_allow_html=True,
 )
-st.markdown("---")
 
-# ── Session state ─────────────────────────────────────────────────────────────
-if "history" not in st.session_state:
-    st.session_state.history = []
-if "last_result" not in st.session_state:
-    st.session_state.last_result = None
-if "_pending_example" in st.session_state:
-    st.session_state.user_input_area = st.session_state.pop("_pending_example")
-elif "user_input_area" not in st.session_state:
-    st.session_state.user_input_area = random.choice(examples_list)
+kpis = [
+    (
+        "F1 spam · réseau",
+        fr_num(network_test["f1"]),
+        f"baseline {fr_num(baseline_test['f1'])}"
+        + (
+            f" · v1 {fr_num(metrics['original_network']['test']['f1'])}"
+            if "original_network" in metrics
+            else ""
+        ),
+    ),
+    (
+        "Précision spam",
+        fr_pct(network_test["precision"]),
+        plural(
+            network_test["confusion_matrix"]["fp"],
+            "SMS légitime signalé à tort",
+            "SMS légitimes signalés à tort",
+        ),
+    ),
+    (
+        "Rappel spam",
+        fr_pct(network_test["recall"]),
+        f"{network_test['confusion_matrix']['fn']} spams manqués sur "
+        f"{network_test['confusion_matrix']['fn'] + network_test['confusion_matrix']['tp']}",
+    ),
+    ("Jeu de test", fr_int(metrics["data"]["test"]), "messages uniques, jamais vus"),
+]
+for col, (label, value, note) in zip(st.columns(4), kpis, strict=True):
+    with col.container(border=True):
+        st.metric(label, value)
+        st.caption(note)
 
-# ── Two-column layout: input (left) | result (right) ─────────────────────────
-col_input, col_result = st.columns([3, 2])
+tab_analyse, tab_perf, tab_method = st.tabs(
+    [":material/search: Analyser", ":material/monitoring: Performance", ":material/school: Méthode"]
+)
 
-with col_input:
-    st.markdown("### 📝 Enter your message")
-    st.radio(
-        "Model",
-        options=list(MODELS),
-        format_func=lambda k: MODELS[k]["label"],
-        key="model_choice",
-        horizontal=True,
+
+# ── Analyser ──────────────────────────────────────────────────────────────────
+def proba_bar(model_key, proba):
+    threshold = metrics[model_key]["threshold"]
+    color = SPAM_COLOR if proba >= threshold else HAM_COLOR
+    return f"""
+      <div class="proba-row"><span class="muted">Probabilité de spam</span>
+        <span class="mono">{fr_proba(proba)}</span></div>
+      <div class="proba-track">
+        <div class="proba-fill" style="width:{proba * 100:.1f}%;background:{color}"></div>
+        <div class="proba-threshold" style="left:{threshold * 100:.1f}%"></div>
+      </div>
+      <div class="muted" style="margin-top:6px">Trait noir : seuil de décision
+        {fr_num(threshold)}, fixé pour viser {fr_pct(metrics["min_precision_target"], 0)}
+        de précision.</div>
+    """
+
+
+def highlighted_words(effects):
+    strongest = max((abs(e) for _, e in effects), default=0.0)
+    parts = []
+    for word, effect in effects:
+        text = html.escape(word)
+        share = abs(effect) / strongest if strongest > 0.05 else 0.0
+        if share < 0.15:
+            parts.append(text)
+            continue
+        rgb = "180,35,24" if effect > 0 else "29,78,137"
+        alpha = 0.12 + 0.38 * share
+        parts.append(f'<mark style="background:rgba({rgb},{alpha:.2f})">{text}</mark>')
+    return " ".join(parts)
+
+
+def render_result(result):
+    model_key = selected_model()
+    proba = result["probas"][model_key]
+    label = verdict(model_key, proba)
+    is_spam = label == "Spam"
+    color = SPAM_COLOR if is_spam else HAM_COLOR
+    icon_bg = "#FDECEC" if is_spam else "#E7F0FB"
+    rows = ""
+    for k in MODELS:
+        p = result["probas"][k]
+        k_color = SPAM_COLOR if verdict(k, p) == "Spam" else HAM_COLOR
+        rows += (
+            f'<span style="font-weight:500">{MODELS[k]["short"]}</span>'
+            f'<span class="mono">{fr_proba(p)}</span>'
+            f'<span style="color:{k_color};font-weight:600">{verdict(k, p)}</span>'
+        )
+    st.markdown(
+        f"""
+        <div class="verdict">
+          <div class="verdict-icon" style="background:{icon_bg}">
+            {ICON_SPAM if is_spam else ICON_HAM}</div>
+          <div><div class="verdict-label" style="color:{color}">{label}</div>
+            <div class="muted">{MODELS[model_key]["by"]}</div></div>
+        </div>
+        {proba_bar(model_key, proba)}
+        <div class="section-sep"></div>
+        <div style="font-weight:600;font-size:0.9rem">Les deux modèles sur ce message</div>
+        <div class="compare">
+          <span class="muted">Modèle</span><span class="muted">P(spam)</span>
+          <span class="muted">Verdict</span>{rows}
+        </div>
+        <div class="section-sep"></div>
+        <div style="font-weight:600;font-size:0.9rem;margin-bottom:4px">
+          Mots qui pèsent dans la décision</div>
+        <div class="words">{highlighted_words(result["effects"][model_key])}</div>
+        <div class="muted">
+          <span class="legend-dot" style="background:rgba(180,35,24,.45);margin-left:0"></span>
+          pousse vers spam
+          <span class="legend-dot" style="background:rgba(29,78,137,.45)"></span>
+          pousse vers légitime · on retire chaque mot et on mesure l'écart de score.
+        </div>
+        """,
+        unsafe_allow_html=True,
     )
-    user_input = st.text_area(
-        "Enter your SMS message",
-        height=160,
-        key="user_input_area",
-        label_visibility="collapsed",
-    )
-    btn_left, btn_right = st.columns(2)
-    with btn_left:
-        predict_button = st.button("🔍 Predict", type="primary", use_container_width=True)
-    with btn_right:
-        if st.button("🎲 Random", use_container_width=True):
-            st.session_state["_pending_example"] = random.choice(examples_list)
-            st.rerun()
 
-with col_result:
-    st.markdown("### 🎯 Result")
+
+with tab_analyse:
+    col_input, col_result = st.columns([3, 2], gap="medium")
+
+    with col_input, st.container(border=True):
+        st.markdown("#### Message à analyser")
+        st.segmented_control(
+            "Modèle",
+            options=list(MODELS),
+            format_func=lambda k: MODELS[k]["label"],
+            default="network",
+            key="model_choice",
+        )
+        user_input = st.text_area(
+            "SMS en anglais (les modèles ont été entraînés sur des SMS anglais)",
+            height=140,
+            key="user_input_area",
+        )
+        st.pills(
+            "Exemples",
+            options=[*EXAMPLES, RANDOM_EXAMPLE],
+            key="example_pick",
+            on_change=use_example,
+        )
+        predict_button = st.button(
+            "Analyser le message", type="primary", icon=":material/search:", key="predict"
+        )
 
     if predict_button:
-        if len(user_input.strip()) < 5:
+        message = user_input.strip()
+        if len(message) < MIN_LENGTH:
             st.session_state.last_result = {"error": True}
         else:
-            message = user_input.strip()
-            with st.spinner("Analyzing..."):
-                probas = {k: spam_probability(k, message) for k in MODELS}
-            choice = st.session_state.model_choice
-            st.session_state.history.append({
-                "Message": message,
-                "Model": MODELS[choice]["label"],
-                "Label": verdict(choice, probas[choice]),
-                **{MODELS[k]["label"]: f"{p:.1%}" for k, p in probas.items()},
-            })
-            st.session_state.last_result = {"error": False, "probas": probas}
+            with st.spinner("Analyse en cours…"):
+                probas = {k: spam_probabilities(k, [message])[0] for k in MODELS}
+                effects = {k: word_effects(k, message) for k in MODELS}
+            model_key = selected_model()
+            st.session_state.history.append(
+                {
+                    "Message": message,
+                    "Modèle": MODELS[model_key]["short"],
+                    "Verdict": verdict(model_key, probas[model_key]),
+                    **{MODELS[k]["short"]: p for k, p in probas.items()},
+                }
+            )
+            st.session_state.last_result = {
+                "error": False,
+                "message": message,
+                "probas": probas,
+                "effects": effects,
+            }
 
-    result = st.session_state.last_result
-    if result is None:
-        st.markdown(
-            "<div style='text-align:center;color:#aaa;padding:48px 0;font-size:1em;'>"
-            "Run a prediction to see results here."
-            "</div>",
-            unsafe_allow_html=True,
+    with col_result, st.container(border=True):
+        st.markdown("#### Verdict")
+        result = st.session_state.last_result
+        if result is None:
+            st.markdown(
+                '<div class="placeholder">Saisissez ou choisissez un SMS, puis lancez '
+                "l'analyse pour voir le verdict ici.</div>",
+                unsafe_allow_html=True,
+            )
+        elif result["error"]:
+            st.error(
+                f"Message trop court : saisissez au moins {MIN_LENGTH} caractères.",
+                icon=":material/error:",
+            )
+        else:
+            render_result(result)
+
+    if st.session_state.history:
+        with st.container(border=True):
+            with st.container(horizontal=True, vertical_alignment="center"):
+                st.markdown("#### Historique de la session")
+                st.space("stretch")
+                history = pd.DataFrame(st.session_state.history)
+                st.download_button(
+                    "Exporter en CSV",
+                    data=history.to_csv(index=False).encode("utf-8"),
+                    file_name="historique_sms.csv",
+                    mime="text/csv",
+                    icon=":material/download:",
+                )
+                st.button("Effacer", icon=":material/delete:", on_click=clear_history)
+            st.dataframe(
+                history.iloc[::-1],
+                hide_index=True,
+                width="stretch",
+                column_config={
+                    "Message": st.column_config.TextColumn(width="large"),
+                    "Modèle": st.column_config.TextColumn(width="small"),
+                    "Verdict": st.column_config.TextColumn(width="small"),
+                    **{
+                        MODELS[k]["short"]: st.column_config.ProgressColumn(
+                            f"P(spam) · {MODELS[k]['short'].lower()}",
+                            min_value=0.0,
+                            max_value=1.0,
+                            format="percent",
+                        )
+                        for k in MODELS
+                    },
+                },
+            )
+
+
+# ── Performance ───────────────────────────────────────────────────────────────
+def confusion_figure(cm):
+    z = [[cm["tn"], cm["fp"]], [cm["fn"], cm["tp"]]]
+    text = [
+        [
+            plural(cm["tn"], "légitime reconnu", "légitimes reconnus").replace(" ", "<br>", 1),
+            plural(cm["fp"], "fausse alerte", "fausses alertes").replace(" ", "<br>", 1),
+        ],
+        [
+            plural(cm["fn"], "spam manqué", "spams manqués").replace(" ", "<br>", 1),
+            plural(cm["tp"], "spam détecté", "spams détectés").replace(" ", "<br>", 1),
+        ],
+    ]
+    fig = go.Figure(
+        go.Heatmap(
+            z=[[math.log1p(v) for v in row] for row in z],
+            x=["Prédit légitime", "Prédit spam"],
+            y=["Vrai légitime", "Vrai spam"],
+            text=text,
+            texttemplate="%{text}",
+            hoverinfo="skip",
+            colorscale=[[0, "#F3F4F6"], [1, ACCENT]],
+            showscale=False,
+            xgap=4,
+            ygap=4,
         )
-    elif result["error"]:
-        st.error("❌ Message too short. Please enter a longer SMS.")
-    else:
-        choice = st.session_state.model_choice
-        spam_pct = result["probas"][choice] * 100
-        label = verdict(choice, result["probas"][choice])
-        color = "#28a745" if label == "Non-Spam" else "#dc3545"
-        emoji = "✅" if label == "Non-Spam" else "🚨"
+    )
+    fig.update_traces(textfont={"size": 14})
+    fig.update_layout(
+        height=280,
+        margin={"t": 10, "b": 10, "l": 10, "r": 10},
+        yaxis={"autorange": "reversed"},
+        paper_bgcolor="rgba(0,0,0,0)",
+        plot_bgcolor="rgba(0,0,0,0)",
+        font={"family": "Inter, sans-serif", "color": "#111827"},
+    )
+    return fig
+
+
+with tab_perf:
+    st.markdown("#### Comparaison sur le jeu de test")
+    st.caption(
+        f"Même découpage pour tous : {fr_int(metrics['data']['test'])} messages uniques jamais "
+        f"vus à l'entraînement. Seuil fixé pour viser une précision de "
+        f"{fr_pct(metrics['min_precision_target'], 0)} sur les prédictions hors pli du train."
+    )
+    compared = [
+        ("Réseau mots + caractères", metrics["network"]),
+        ("Baseline TF-IDF + régression logistique", metrics["baseline"]),
+    ]
+    if "original_network" in metrics:
+        compared.append(("Première version du réseau", metrics["original_network"]))
+    st.dataframe(
+        pd.DataFrame(
+            [
+                {
+                    "Modèle": name,
+                    "Précision": fr_pct(m["test"]["precision"]),
+                    "Rappel": fr_pct(m["test"]["recall"]),
+                    "F1 spam": fr_num(m["test"]["f1"]),
+                    "Fausses alertes": m["test"]["confusion_matrix"]["fp"],
+                    "Spams manqués": m["test"]["confusion_matrix"]["fn"],
+                    "Seuil": fr_num(m["threshold"]),
+                }
+                for name, m in compared
+            ]
+        ),
+        hide_index=True,
+        width="stretch",
+        column_config={"Modèle": st.column_config.TextColumn(width="large")},
+    )
+    for col, key in zip(st.columns(2, gap="medium"), MODELS, strict=True):
+        with col.container(border=True):
+            st.markdown(f"**{MODELS[key]['label']}** · F1 {fr_num(metrics[key]['test']['f1'])}")
+            st.plotly_chart(
+                confusion_figure(metrics[key]["test"]["confusion_matrix"]),
+                width="stretch",
+                config={"displayModeBar": False},
+                key=f"cm_{key}",
+            )
+    st.caption(
+        "Lecture : sur ce jeu de test, le réseau est le plus prudent (une seule fausse alerte) "
+        "et la baseline rattrape un peu plus de spams. L'écart de F1 tient à quelques messages."
+    )
+
+
+# ── Méthode ───────────────────────────────────────────────────────────────────
+with tab_method:
+    data = metrics["data"]
+    col_data, col_limits = st.columns([3, 2], gap="medium")
+    with col_data.container(border=True):
+        st.markdown("#### Données et protocole")
         st.markdown(
             f"""
-            <div style="background:{color};color:white;border-radius:12px;
-                        padding:28px 20px;text-align:center;">
-                <div style="font-size:2.8em;">{emoji}</div>
-                <div style="font-size:1.9em;font-weight:700;margin:10px 0;">{label}</div>
-                <div style="font-size:1.1em;margin-bottom:14px;">
-                    Spam probability: <b>{spam_pct:.1f}%</b>
-                </div>
-                <div style="background:rgba(255,255,255,0.3);border-radius:6px;height:8px;">
-                    <div style="background:white;border-radius:6px;height:8px;
-                                width:{spam_pct:.0f}%;"></div>
-                </div>
-            </div>
-            """,
-            unsafe_allow_html=True,
+- **Source** : UCI SMS Spam Collection, SMS en anglais des années 2010.
+- **Doublons retirés** : {fr_int(data["messages_raw"])} → {fr_int(data["messages_unique"])}
+  messages uniques, dont {fr_pct(data["spam_share"])} de spams.
+- **Découpage** : 80 / 20 stratifié (graine 42), soit {fr_int(data["train"])} messages
+  d'entraînement et {fr_int(data["test"])} de test.
+- **Seuil** : choisi sur les prédictions hors pli du train, jamais sur le test.
+- **Architecture du réseau** : retenue en validation croisée à 5 plis sur le train.
+"""
         )
-        st.markdown("##### ⚖️ Both models on this message")
-        for col, key in zip(st.columns(2), MODELS, strict=True):
-            proba = result["probas"][key]
-            with col:
-                st.metric(f"{MODELS[key]['label']} · {verdict(key, proba)}", f"{proba:.1%}")
-
-# ── History + Chart ───────────────────────────────────────────────────────────
-if st.session_state.history:
-    st.markdown("---")
-
-    col_table, col_chart = st.columns([3, 2])
-
-    with col_table:
-        title_col, clear_col = st.columns([4, 1])
-        with title_col:
-            st.markdown("### 📜 Prediction History")
-        with clear_col:
-            st.markdown("<div style='margin-top:10px'></div>", unsafe_allow_html=True)
-            if st.button("🗑️ Clear", use_container_width=True):
-                st.session_state.history = []
-                st.session_state.last_result = None
-                st.rerun()
+    with col_limits.container(border=True):
+        st.markdown("#### Limites")
+        st.markdown(
+            "Les SMS datent des années 2010 et sont en anglais : les arnaques actuelles "
+            "(liens raccourcis, faux colis, crypto) y sont peu représentées. "
+            "C'est un projet pédagogique, pas un filtre de production."
+        )
+        st.markdown(
+            f"[Code et notebook sur GitHub]({REPO_URL}) · "
+            f"[Ré-entraîner les modèles]({REPO_URL}/blob/main/train.py)"
+        )
+    with st.container(border=True):
+        st.markdown("#### Les deux modèles")
+        net = metrics["network"]
         st.dataframe(
-            pd.DataFrame(st.session_state.history),
+            pd.DataFrame(
+                {
+                    "Étape": ["Représentation", "Classifieur", "Seuil", "Taille"],
+                    MODELS["network"]["label"]: [
+                        MODELS["network"]["features"],
+                        MODELS["network"]["classifier"],
+                        fr_num(net["threshold"]),
+                        f"{fr_int(net['parameters'])} paramètres · "
+                        f"{fr_num(net['size_kb'] / 1024, 1)} Mo",
+                    ],
+                    MODELS["baseline"]["label"]: [
+                        MODELS["baseline"]["features"],
+                        MODELS["baseline"]["classifier"],
+                        fr_num(metrics["baseline"]["threshold"]),
+                        f"{fr_num(metrics['baseline']['size_kb'] / 1024, 1)} Mo",
+                    ],
+                }
+            ),
             hide_index=True,
-            column_config={
-                "Message": st.column_config.TextColumn("Message", width="large"),
-                "Model": st.column_config.TextColumn("Model", width="small"),
-                "Label": st.column_config.TextColumn("Label", width="small"),
-            },
+            width="stretch",
+        )
+        st.caption(
+            "Le réseau lit le texte brut : la vectorisation (mots et caractères) est intégrée "
+            "au modèle Keras, il n'y a donc aucun prétraitement à reproduire côté app."
         )
 
-    with col_chart:
-        labels = [h["Label"] for h in st.session_state.history]
-        fig = px.pie(
-            names=labels,
-            color=labels,
-            color_discrete_map={"Spam": "#dc3545", "Non-Spam": "#28a745"},
-            hole=0.4,
-        )
-        fig.update_traces(textinfo="percent", textposition="inside")
-        fig.update_layout(
-            margin={"t": 30, "b": 30, "l": 20, "r": 20},
-            showlegend=True,
-            legend={
-                "orientation": "h",
-                "yanchor": "bottom",
-                "y": -0.15,
-                "xanchor": "center",
-                "x": 0.5,
-            },
-            height=300,
-        )
-        st.plotly_chart(fig, width="stretch")
+# ── Footer ────────────────────────────────────────────────────────────────────
+st.markdown(
+    f"""
+    <div style="display:flex;justify-content:space-between;flex-wrap:wrap;gap:8px;
+                color:{MUTED};font-size:0.85rem;margin-top:1.5rem;padding-top:1rem;
+                border-top:1px solid #E5E7EB">
+      <span>Données : UCI SMS Spam Collection · {fr_int(metrics["data"]["messages_unique"])}
+        messages uniques · projet pédagogique.</span>
+      <span>Christophe Noret · <a href="{REPO_URL}" target="_blank">GitHub</a> ·
+        <a href="{LINKEDIN_URL}" target="_blank">LinkedIn</a></span>
+    </div>
+    """,
+    unsafe_allow_html=True,
+)
