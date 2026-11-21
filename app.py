@@ -185,7 +185,7 @@ st.markdown(
     f"""
     <style>
       footer {{ visibility: hidden; }}
-      .block-container {{ padding-top: 2.2rem; max-width: 1200px; }}
+      .block-container {{ padding-top: 4.75rem; max-width: 1200px; }}
       .app-header {{ display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
                      margin-bottom: 0.4rem; }}
       .app-logo {{ width: 36px; height: 36px; border-radius: 9px; background: {ACCENT};
