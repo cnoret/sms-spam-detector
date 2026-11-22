@@ -10,9 +10,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v6
-        with:
-          lfs: true
+        uses: actions/checkout@v7
 
       - name: Add HF Space metadata to README
         run: |
