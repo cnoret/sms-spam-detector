@@ -9,7 +9,7 @@
 [![scikit-learn](https://img.shields.io/badge/scikit--learn-1.7-F7931E?logo=scikitlearn&logoColor=white)](https://scikit-learn.org/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-brightgreen.svg)](LICENSE)
 
-**A Keras network reading both words and characters lifts spam F1 from 0.856 to 0.964 under a leak-free evaluation, with a single legitimate SMS flagged on 1,032 held-out messages, on par with a TF-IDF + logistic regression baseline (0.972).**
+**A Keras network reading both words and characters lifts spam F1 from 0.856 to 0.964 under a leak-free evaluation, flagging a single legitimate SMS out of 1,032 held-out messages, on par with a TF-IDF + logistic regression baseline (0.972).**
 
 `Data:` 5,572 SMS · 5,158 unique after deduplication · 12.4% spam · English, UCI SMS Spam Collection (early 2010s)
 
@@ -27,8 +27,7 @@
 - Benchmarked the network against a **TF-IDF + logistic regression** baseline and against the first version of the network, on the same held-out messages
 - Built an interactive **Streamlit** web app: pick the model, see both models' scores side by side, a word-by-word explanation of the decision, and the test-set confusion matrices
 - Containerized with **Docker** and deployed on both **Hugging Face Spaces** and **Streamlit Cloud**
-- Added **pytest** and **Streamlit AppTest** checks, run with **ruff** on every push and pull request with **GitHub Actions**
-- Automated syncing between GitHub and Hugging Face with **GitHub Actions**
+- Added **pytest** and **Streamlit AppTest** checks, run with **ruff** on every push and pull request with **GitHub Actions**, which also syncs `main` to Hugging Face Spaces
 
 ## Tech Stack
 
@@ -117,7 +116,7 @@ The suite (about 20 seconds) checks the training protocol, retrains the baseline
 
 ## Run Locally
 
-**Requires:** Docker
+With Docker:
 
 ```bash
 git clone https://github.com/cnoret/sms-spam-detector.git
@@ -126,7 +125,14 @@ docker build -t sms-spam-detector .
 docker run -p 7860:7860 sms-spam-detector
 ```
 
-Open `http://localhost:7860`
+Then open `http://localhost:7860`.
+
+Without Docker (Python 3.12, the version used in CI):
+
+```bash
+pip install -r requirements.txt
+streamlit run app.py
+```
 
 ## Project Structure
 
@@ -134,9 +140,13 @@ Open `http://localhost:7860`
 ├── app.py                 # Streamlit application
 ├── train.py               # Training and evaluation of all models (writes models/)
 ├── preprocessing.py       # spaCy cleaning for the first network (reference)
+├── examples.json          # Sample messages offered in the app
+├── data/spam.csv          # UCI SMS Spam Collection (raw)
 ├── models/                # Network (.keras), baseline (.joblib), metrics.json
 ├── notebook/              # Analysis: EDA, leakage, network vs baseline, errors
 ├── tests/                 # pytest + Streamlit AppTest
+├── img/                   # README screenshot, word cloud mask
+├── .streamlit/            # App theme
 ├── .github/workflows/     # Tests, sync to Hugging Face
 ├── Dockerfile
 ├── ruff.toml
@@ -147,7 +157,7 @@ Open `http://localhost:7860`
 
 ## Disclaimer
 
-Trained on ~5,500 messages from the [UCI SMS Spam Collection](https://archive.ics.uci.edu/ml/datasets/sms+spam+collection) (early 2010s, English only). Modern phishing SMS (fake bank or parcel links) are under-represented and some slip through. Intended for educational and demonstration purposes — not suitable for production use.
+Trained on ~5,500 messages from the [UCI SMS Spam Collection](https://archive.ics.uci.edu/dataset/228/sms+spam+collection) (early 2010s, English only). Modern phishing SMS (fake bank or parcel links) are under-represented and some slip through. Intended for educational and demonstration purposes, not for production use.
 
 ## Author
 
