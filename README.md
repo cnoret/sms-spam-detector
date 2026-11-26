@@ -1,6 +1,6 @@
 # SMS Spam Detector: A Deep Learning Spam Filter, Checked Against a Baseline
 
-[![Live App](https://img.shields.io/badge/Live_App-Streamlit-FF4B4B?logo=streamlit&logoColor=white)](https://sms-spam-detector-cnoret.streamlit.app/)
+[![Live App](https://img.shields.io/badge/Live_App-Streamlit-FF4B4B?logo=streamlit&logoColor=white)](https://cnoret-sms-spam-detector.hf.space/)
 [![Open in Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/cnoret/sms-spam-detector/blob/main/notebook/sms_spam_detector.ipynb)
 [![Tests](https://github.com/cnoret/sms-spam-detector/actions/workflows/tests.yml/badge.svg)](https://github.com/cnoret/sms-spam-detector/actions/workflows/tests.yml)
 [![Python](https://img.shields.io/badge/Python-3.12-3776AB?logo=python&logoColor=white)](https://www.python.org/)
@@ -13,7 +13,7 @@
 
 `Data:` 5,572 SMS · 5,158 unique after deduplication · 12.4% spam · English, UCI SMS Spam Collection (early 2010s)
 
-`Live app:` [Streamlit Cloud](https://sms-spam-detector-cnoret.streamlit.app/) · [Hugging Face Spaces](https://cnoret-sms-spam-detector.hf.space/)
+`Live app:` [Hugging Face Spaces](https://cnoret-sms-spam-detector.hf.space/) · [Streamlit Cloud](https://sms-spam-detector-cnoret.streamlit.app/) (free hosting: the app may take up to a minute to wake up)
 
 ![App Screenshot](https://raw.githubusercontent.com/cnoret/sms-spam-detector/main/img/screenshot.png)
 
@@ -44,13 +44,13 @@
 
 ## Data Insights
 
-A few findings from the [analysis notebook](notebook/sms_spam_detector.ipynb) (5,572 messages, 87% ham / 13% spam), which also covers the leakage of the first evaluation, the network's learning curves, a bootstrap comparison with the baseline and an error analysis:
+A few findings from the [analysis notebook](notebook/sms_spam_detector.ipynb) (5,572 messages, 5,158 unique, 12.4% spam), which also covers the leakage of the first evaluation, the network's learning curves, a bootstrap comparison with the baseline and an error analysis:
 
 **Duplicates** — 414 rows are exact copies of another message (5,158 unique messages). Left in, they put copies of training messages in the test set and inflate the scores, so they are removed before splitting.
 
-**Class imbalance** — The 87/13 split is handled with balanced class weights, and accuracy is not used to pick the model: a model that always answers "non-spam" would already reach 87%.
+**Class imbalance** — The 87.6/12.4 split is handled with balanced class weights, and accuracy is not used to pick the model: a model that always answers "non-spam" would already reach 87.6%.
 
-**Spam messages are nearly twice as long** — Average length: 142 characters for spam vs 74 for ham. Message length alone is a strong signal.
+**Spam messages are nearly three times as long** — Median length: about 150 characters for spam vs about 50 for ham, with spam piling up just under the 160-character limit of a single SMS. Message length alone is a strong signal.
 
 **Most frequent words in spam** — `free`, `txt`, `win`, `claim`, `mobile`, `stop`, `reply`. Classic urgency/reward vocabulary that differs clearly from everyday messages.
 
