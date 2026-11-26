@@ -455,8 +455,14 @@ with tab_analyse:
                     icon=":material/download:",
                 )
                 st.button("Clear", icon=":material/delete:", on_click=clear_history)
+            # Shown on a 0-100 scale and kept within 0.1-99.9%, like the rest of
+            # the app, so a rounded score never reads as 0% or 100%
+            shown = history.copy()
+            for k in MODELS:
+                col = MODELS[k]["short"]
+                shown[col] = (shown[col] * 100).clip(0.1, 99.9)
             st.dataframe(
-                history.iloc[::-1],
+                shown.iloc[::-1],
                 hide_index=True,
                 width="stretch",
                 column_config={
@@ -467,8 +473,8 @@ with tab_analyse:
                         MODELS[k]["short"]: st.column_config.ProgressColumn(
                             f"P(spam) · {MODELS[k]['short'].lower()}",
                             min_value=0.0,
-                            max_value=1.0,
-                            format="percent",
+                            max_value=100.0,
+                            format="%.1f%%",
                         )
                         for k in MODELS
                     },
